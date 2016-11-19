@@ -2,6 +2,7 @@
 # read, filter, and analyze methylation data per SCU pipeline.
 
 # A custom S4 class is created to handle the object through the pipeline
+# To access the data within the S4 classes, use object@data_type
 
 require(minfi)
 require(limma)
