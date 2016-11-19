@@ -65,7 +65,6 @@ pmm_01_readqc <- function(target_dir,
                           th_pval = NULL,
                           th_proberate = 0.95,
                           th_samplerate = 0.8,
-                          suffix = NULL,
                           verbose = 2){
   
   ### Set up
@@ -235,12 +234,6 @@ pmm_02_normalization <- function(scu_meth,
     dir.create(output_dir)
   }
   
-  # Holders
-  # th_new <- list(pval = FALSE, sample = FALSE, probe = FALSE)
-  
-  # Parse data
-  # rgdat <- scu_meth@rgdat
-  
   # Replace thresholds and recalculate if there are new user inputs
   if(!missing(th_pval)){
     cat('Recalculating call rates.\n')
@@ -260,7 +253,7 @@ pmm_02_normalization <- function(scu_meth,
   # Apply filters
   if(filter_samples) {
     scu_meth@rgdat <- scu_meth@rgdat[,scu_meth@sample_callrate >= 
-                                       test@callrate_thresholds['sample_threshold']]
+                                       scu_meth@callrate_thresholds['sample_threshold']]
   }
   
   ### Preprocessing
@@ -343,7 +336,7 @@ pmm_03_limma <- function(scu_meth,
   }
   
   # Identify comparison(s)
-  if(missing(comparison)){
+  if(is.null(comparison)){
     # Populate list for comparison
     comparison <- apply(pData(scu_meth@processed_dat)[,phenotype,drop=FALSE],
                         2,
@@ -424,8 +417,107 @@ pipeline_methylation_microarray <- function(target_dir,
                                             getm = TRUE,
                                             top_probes = 0.95,
                                             limma_mode = c('m', 'b'),
-                                            verbose = 2){
+                                            save_data = TRUE,
+                                            .cache = TRUE,
+                                            verbose = 2, ...){
+  ## .cache is not implemented yet
   
+  ### Complete checks before running pipeline
+  
+  if(verbose >= 1)
+    cat('Checking for data consistency.\n')
+  
+  # Create output directory if it does not exist
+  if(!dir.exists(output_dir)){
+    dir.create(output_dir)
+  }
+  
+  # Make project directory if missing, using date & timestamp
+  if(missing(project_name)){
+    project_name <- paste0('project_', gsub(' ', '_', gsub('-|:', '', Sys.time())))
+  }
+  project_dir <- paste0(output_dir, '/', project_name)
+  
+  if(!dir.exists(project_dir)){
+    dir.create(project_dir)
+  }
+  
+  # Evaluate if files exist
+  foo <- c(pdat_file, pval_file)
+  names(foo) <- c('pdat_file', 'pval_file')
+  bar <- sapply(foo, function(x){
+    if(is.na(x))
+      return(TRUE) else
+        return(file.exists(x))
+  })
+  if(!all(as.logical(bar))) {
+    missing_files <- paste('The following files are not found:',
+                           paste(names(which(!bar)), collapse = '; '), sep = '\n')
+    stop(missing_files)
+  }
+  
+  # Define thresholds
+  if(missing(pval_file) & missing(th_pval)){
+    th_pval <- 1e-8
+  } else {
+    if(missing(th_pval)) {
+      th_pval <- 0.01
+    }
+  }
+  
+  if(top_probes < 0){
+    stop('Top_probes must be a value between 0 to 1, with 0 = no filtering.')
+  }
+  
+  if(verbose >= 1)
+    cat('\nStep 1: Reading data.\n\n')
+  scu_meth <- pmm_01_readqc(target_dir = target_dir, output_dir = project_dir,
+                            pdat_file = pdat_file, pval_file = pval_file,
+                            th_pval = th_pval, th_proberate = th_proberate,
+                            th_samplerate = th_samplerate, verbose = verbose)
+  
+  if(verbose >= 1)
+    cat('\nStep 2: Beginning normalization.\n\n')
+  scu_meth <- pmm_02_normalization(scu_meth = scu_meth, output_dir = project_dir,
+                                   filter_samples = filter_samples,
+                                   filter_probes = filter_probes,
+                                   preprocess = preprocess, verbose = verbose,
+                                   snp_filter = snp_filter,
+                                   snp_filter_dist = snp_filter_dist,
+                                   snp_filter_maf = snp_filter_maf,
+                                   getm = getm, ...)
+  if(save_data){
+    if(verbose >= 1)
+      cat('Saving rdata, beta, and m-value files.\n')
+    save(scu_meth, file = paste0(project_dir, '/scu_methylation.rda'))
+    
+    foo <- as.data.frame(scu_meth@beta_values)
+    foo$probe_id <- rownames(foo)
+    foo <- foo[,c(ncol(foo), 1:(ncol(foo) - 1))]
+    write.table(foo, file = paste0(project_dir, '/beta_values.txt'),
+                sep = '\t', quote = FALSE, row.names = FALSE)
+    
+    foo <- as.data.frame(scu_meth@beta_values)
+    foo$probe_id <- rownames(foo)
+    foo <- foo[,c(ncol(foo), 1:(ncol(foo) - 1))]
+    write.table(foo, file = paste0(project_dir, '/m_values.txt'),
+                sep = '\t', quote = FALSE, row.names = FALSE)
+  }
+    
+  if(verbose >= 1)
+    cat('\nStep 3: Running differential methylation analysis by limma.\n\n')
+  scu_limma <- pmm_03_limma(scu_meth = scu_meth,
+                            phenotype = phenotype,
+                            comparison = comparison,
+                            top_probes = top_probes,
+                            limma_mode = limma_mode,
+                            output_dir = project_name,
+                            verbose = verbose)
+  
+  Res <- list()
+  Res$scu_methylation <- scu_meth
+  Res$scu_limma <- scu_limma
+  return(Res)
 }
 
 
@@ -436,7 +528,8 @@ pf = 'data/phenodat.txt' # Contains phenotypic data with 'Sample_Name' identifie
 
 test = pmm_01_readqc(target_dir = td, pdat_file = pf)
 test_norm = pmm_02_normalization(test, preprocess = 'funnorm')
-test_limma = pmm_03_limma(scu_meth = test_norm, limma_mode = 'b',
-                          phenotype = c('phenotype', 'type'))
+test_limma = pmm_03_limma(scu_meth = scu_meth, limma_mode = 'b',
+                          phenotype = 'phenotype')
 
-
+test = pipeline_methylation_microarray(target_dir = td, pdat_file = pf,
+                                       phenotype = 'phenotype', project = 'test')
