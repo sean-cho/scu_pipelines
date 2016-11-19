@@ -10,12 +10,31 @@ require(scales)
 require(DMRcate)
 require(toolkit)
 source('code/def_classes.R')
+load('annot/il450k.rda')
 
 .makedesigns <- function(scu_meth, phenotype){
   foo <- factor(pData(scu_meth@processed_dat)[,phenotype,drop=TRUE])
   bar <- model.matrix(~ 0 + foo)
   colnames(bar) <- gsub('foo', '', colnames(bar))
   return(bar)
+}
+
+.process_beta_table <- function(x, 
+                                annot = c('gene_symbol', 'Relation_to_Island',
+                                          'UCSC_RefGene_Group'),
+                                filter = FALSE){
+  if(filter){
+    foo <- subset(x, adj.P.Val <= 0.05)
+  } else {
+    foo <- x
+  }
+  bar <- data.frame(il450k[,annot], stringsAsFactors = FALSE)
+  bar$Relation_to_Island = gsub('S_|N_', '', bar$Relation_to_Island)
+  foobar <- merge(foo, bar, by = 0)
+  rownames(foobar) <- foobar$Row.names
+  foobar$Row.names <- NULL
+  foobar <- foobar[rownames(foo),]
+  return(foobar)
 }
 
 .limma_mule <- function(m, des, comparison){
@@ -26,6 +45,8 @@ source('code/def_classes.R')
                                                  levels = des))
   res_ebayes <- eBayes(res_contrasts)
   res_toptable <- topTable(res_ebayes, number = nrow(m))
+  # rownames(res_toptable) <- res_toptable$ID
+  res_toptable <- .process_beta_table(res_toptable)
   
   output <- new(Class = 'SCU_Methylation_Limma',
                 model.mat = des,
@@ -278,6 +299,8 @@ pmm_02_normalization <- function(scu_meth,
   
   if(getm){
     m <- getM(scu_meth@processed_dat)[rownames(b),]
+    m <- pmin(m, max(m[m != 'Inf']))
+    m <- pmax(m, min(m[m != '-Inf']))
   }
   
   scu_meth@beta_values <- b
@@ -288,7 +311,7 @@ pmm_02_normalization <- function(scu_meth,
 
 pmm_03_limma <- function(scu_meth,
                          phenotype,
-                         comparison,
+                         comparison = NULL,
                          top_probes = 0.95,
                          limma_mode = c('m', 'b'),
                          output_dir = 'output',
@@ -350,7 +373,10 @@ pmm_03_limma <- function(scu_meth,
   if(limma_mode[1] == 'm'){
     if(length(scu_meth@m_values) == 0){
       cat('M-values not found. Populating.\n')
-      scu_meth@m_values <- getM(scu_meth@processed_dat)[rownames(scu_meth@beta_values),]
+      m <- getM(scu_meth@processed_dat)[rownames(scu_meth@beta_values),]
+      m <- pmin(m, max(m[m != 'Inf']))
+      m <- pmax(m, min(m[m != '-Inf']))
+      scu_meth@m_values <- m
     } 
     M <- scu_meth@m_values
   } else {
@@ -374,17 +400,30 @@ pmm_03_limma <- function(scu_meth,
                             des = foo_design,
                             comparison = foo_comparison)
   }
+  names(Res) <- phenotype
   return(Res)
 }
 
 pipeline_methylation_microarray <- function(target_dir,
+                                            phenotype,
+                                            project_name = NULL,
+                                            comparison = NULL,
                                             output_dir = 'output',
                                             pdat_file = NA,
                                             pval_file = NA,
                                             th_pval = NULL,
                                             th_proberate = 0.95,
                                             th_samplerate = 0.8,
-                                            suffix = NULL,
+                                            filter_samples = TRUE,
+                                            filter_probes = TRUE,
+                                            preprocess = c('funnorm', 'raw',
+                                                           'illumina', 'quantile'),
+                                            snp_filter = TRUE,
+                                            snp_filter_dist = 2,
+                                            snp_filter_maf = 0.05,
+                                            getm = TRUE,
+                                            top_probes = 0.95,
+                                            limma_mode = c('m', 'b'),
                                             verbose = 2){
   
 }
@@ -397,5 +436,7 @@ pf = 'data/phenodat.txt' # Contains phenotypic data with 'Sample_Name' identifie
 
 test = pmm_01_readqc(target_dir = td, pdat_file = pf)
 test_norm = pmm_02_normalization(test, preprocess = 'funnorm')
-test_limma = pmm_03_limma(scu_meth = test_norm, 
+test_limma = pmm_03_limma(scu_meth = test_norm, limma_mode = 'b',
                           phenotype = c('phenotype', 'type'))
+
+
