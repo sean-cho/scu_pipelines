@@ -67,3 +67,9 @@ setMethod('show', signature = signature(object = 'SCU_Methylation_Limma'),
             cat('Top 10 DMPs:\n')
             print(head(object@toptable))
           })
+
+
+# Expression --------------------------------------------------------------
+
+
+
