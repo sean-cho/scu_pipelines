@@ -1,6 +1,7 @@
 # Methylation -------------------------------------------------------------
 
 library(minfi)
+library(limma)
 
 setClassUnion('SCU_processed_dat', 
               c('GenomicRatioSet', 'MethylSet'))
@@ -71,5 +72,17 @@ setMethod('show', signature = signature(object = 'SCU_Methylation_Limma'),
 
 # Expression --------------------------------------------------------------
 
+setClass(Class = 'SCU_Expression', 
+         representation = representation(
+           rgdat = 'ESet',
+           beta_values = 'matrix',
+           m_values = 'matrix'))
 
-
+setClass(Class = 'SCU_Expression_Limma', 
+         representation = representation(
+           model.mat = 'matrix',
+           model = 'character',
+           linear_fit = 'MArrayLM', 
+           contrasts_fit = 'MArrayLM',
+           ebayes = 'MArrayLM',
+           toptable  = 'data.frame'))
