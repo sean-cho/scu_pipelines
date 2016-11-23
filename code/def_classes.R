@@ -1,3 +1,14 @@
+# Common ------------------------------------------------------------------
+
+setClass(Class = 'SCU_Limma', 
+         representation = representation(
+           model.mat = 'matrix',
+           model = 'character',
+           linear_fit = 'MArrayLM', 
+           contrasts_fit = 'MArrayLM',
+           ebayes = 'MArrayLM',
+           toptable  = 'data.frame'))
+
 # Methylation -------------------------------------------------------------
 
 library(minfi)
@@ -17,15 +28,6 @@ setClass(Class = 'SCU_Methylation',
            pval_threshold = 'numeric',
            beta_values = 'matrix',
            m_values = 'matrix'))
-
-setClass(Class = 'SCU_Methylation_Limma', 
-         representation = representation(
-           model.mat = 'matrix',
-           model = 'character',
-           linear_fit = 'MArrayLM', 
-           contrasts_fit = 'MArrayLM',
-           ebayes = 'MArrayLM',
-           toptable  = 'data.frame'))
 
 setMethod('show', signature = signature(object = 'SCU_Methylation'), 
           function(object){
@@ -78,11 +80,3 @@ setClass(Class = 'SCU_Expression',
            beta_values = 'matrix',
            m_values = 'matrix'))
 
-setClass(Class = 'SCU_Expression_Limma', 
-         representation = representation(
-           model.mat = 'matrix',
-           model = 'character',
-           linear_fit = 'MArrayLM', 
-           contrasts_fit = 'MArrayLM',
-           ebayes = 'MArrayLM',
-           toptable  = 'data.frame'))

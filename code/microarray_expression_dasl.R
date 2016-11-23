@@ -4,9 +4,12 @@
 # A custom S4 class is created to handle the object through the pipeline
 # To access the data within the S4 classes, use object@data_type
 
-require(illuminaio)
-require(limma)
-require(org.Hs.eg.db)
-require(scales)
-require(toolkit)
+library(beadarray)
+library(limma)
+library(org.Hs.eg.db)
+library(scales)
+library(toolkit)
 source('code/def_classes.R')
+
+
+

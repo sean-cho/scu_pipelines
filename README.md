@@ -4,4 +4,7 @@
 Currently barebones, but planning to:
 1. Implement as package, with accompanying shell scripts.
 2. Update Readme as md, with usage instructions.
+
+To do:
+1. Implement .cache for processing.
 ```

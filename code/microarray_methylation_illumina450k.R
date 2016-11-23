@@ -4,12 +4,12 @@
 # A custom S4 class is created to handle the object through the pipeline
 # To access the data within the S4 classes, use object@data_type
 
-require(minfi)
-require(limma)
-require(org.Hs.eg.db)
-require(scales)
-require(DMRcate)
-require(toolkit)
+library(minfi)
+library(limma)
+library(org.Hs.eg.db)
+library(scales)
+library(DMRcate)
+library(toolkit)
 source('code/def_classes.R')
 load('annot/il450k.rda')
 
@@ -49,7 +49,7 @@ load('annot/il450k.rda')
   # rownames(res_toptable) <- res_toptable$ID
   res_toptable <- .process_beta_table(res_toptable)
   
-  output <- new(Class = 'SCU_Methylation_Limma',
+  output <- new(Class = 'SCU_Limma',
                 model.mat = des,
                 model = comparison,
                 linear_fit = res_lm,
